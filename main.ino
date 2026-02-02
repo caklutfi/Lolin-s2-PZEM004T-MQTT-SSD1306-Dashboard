@@ -86,8 +86,6 @@ void drawDashboard() {
   display.setCursor(4,36);  display.printf("F %.1fHz", frequency);
   display.setCursor(68,36); display.printf("E %.3fkWh", energyKWh);
 
-  // RSSI REMOVED FROM DASHBOARD AS REQUESTED
-
   display.setCursor(0,56);
   display.print(WiFi.localIP());
 
@@ -113,8 +111,6 @@ void drawBig(const char* label, float value, const char* unit, bool noDecimal=fa
   display.display();
 }
 
-// =================================================
-// DISPLAY ROUTER (INSTANT REFRESH)
 void drawCurrentPage() {
   if (!screenOn) return;
 
@@ -130,20 +126,16 @@ void drawCurrentPage() {
   }
 }
 
-// =================================================
-// BUTTON HANDLER (INSTANT)
 void handleButton() {
   if (digitalRead(BTN_NEXT) == LOW && millis() - lastButtonPress > debounceDelay) {
     lastButtonPress = millis();
     lastInteraction = millis();
     screenOn = true;
     displayPage = (displayPage + 1) % totalPages;
-    drawCurrentPage();  // <<< INSTANT REFRESH
+    drawCurrentPage();
   }
 }
 
-// =================================================
-// SCREEN TIMEOUT
 void handleScreenTimeout() {
   if (millis() - lastInteraction > screenTimeout && screenOn) {
     display.clearDisplay();
@@ -152,8 +144,6 @@ void handleScreenTimeout() {
   }
 }
 
-// =================================================
-// SETUP
 void setup() {
   Serial.begin(115200);
   pinMode(BTN_NEXT, INPUT_PULLUP);
@@ -170,20 +160,17 @@ void setup() {
   lastInteraction = millis();
 }
 
-// =================================================
-// LOOP
 void loop() {
-
   if (!client.connected()) connectMQTT();
   client.loop();
 
   handleButton();
   handleScreenTimeout();
 
-  // SENSOR READ CYCLE
   if (millis() - lastSensorRead > sensorInterval) {
     lastSensorRead = millis();
 
+    // Membaca data dari sensor
     voltage = pzem.voltage();
     current = pzem.current();
     power = pzem.power();
@@ -192,6 +179,18 @@ void loop() {
     energyKWh = pzem.energy() - energyStart;
     if (energyKWh < 0) energyKWh = 0;
 
-    drawCurrentPage();  // update data on screen
+    // --- PROSES PUBLISH MQTT ---
+    char payload[32];
+    dtostrf(voltage, 6, 2, payload);    client.publish("caklutfi/power/pzem_main/voltage", payload, true);
+    dtostrf(current, 6, 3, payload);    client.publish("caklutfi/power/pzem_main/current", payload, true);
+    dtostrf(power, 6, 2, payload);      client.publish("caklutfi/power/pzem_main/power", payload, true);
+    dtostrf(frequency, 6, 2, payload);  client.publish("caklutfi/power/pzem_main/frequency", payload, true);
+    dtostrf(pf, 4, 2, payload);         client.publish("caklutfi/power/pzem_main/pf", payload, true);
+    dtostrf(energyKWh, 8, 3, payload);  client.publish("caklutfi/power/pzem_main/energy", payload, true);
+
+    sprintf(payload, "%lu", millis() / 1000);
+    client.publish("caklutfi/power/pzem_main/uptime", payload, true);
+
+    drawCurrentPage(); // Update layar setelah data dikirim
   }
 }
