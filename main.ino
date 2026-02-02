@@ -11,8 +11,8 @@
 #include <Adafruit_SSD1306.h>
 
 // ================= WIFI =================
-#define WIFI_SSID     ""
-#define WIFI_PASSWORD ""
+#define WIFI_SSID     "ssid"
+#define WIFI_PASSWORD "password"
 
 // ================= MQTT =================
 #define MQTT_SERVER "test.mosquitto.org"

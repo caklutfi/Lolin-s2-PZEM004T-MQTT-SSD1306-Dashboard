@@ -1,5 +1,8 @@
+<<<<<<< HEAD
 # Lolin-s2-PZEM004T-MQTT-SSD1306-Dashboard
 
+=======
+>>>>>>> cfb8dca0324f0f46a813be592a279cba1968cbc8
 # ⚡ LOLIN S2 Power Monitor with OLED + MQTT + Button UI
 
 Project ini adalah sistem monitoring daya listrik AC menggunakan **Lolin S2 (ESP32-S2)**, sensor **PZEM-004T**, dan layar **OLED SSD1306**. Sistem dilengkapi dengan antarmuka tombol untuk navigasi data secara lokal dan integrasi ke broker MQTT.
@@ -26,6 +29,10 @@ Project ini adalah sistem monitoring daya listrik AC menggunakan **Lolin S2 (ESP
 | **Button** | GPIO 18 | Input Navigasi |
 
 ## 🌐 Detail Koneksi
+<<<<<<< HEAD
+=======
+* **WiFi SSID:** `PT. PAS`
+>>>>>>> cfb8dca0324f0f46a813be592a279cba1968cbc8
 * **MQTT Broker:** `test.mosquitto.org`
 * **MQTT Port:** `1883`
 * **Client ID:** `LOLIN_S2_PZEM_Node`
@@ -42,4 +49,8 @@ Project ini adalah sistem monitoring daya listrik AC menggunakan **Lolin S2 (ESP
 
 ## 📝 Catatan Operasional
 * **Serial Monitor:** Hanya menampilkan status inisialisasi di awal. Data sensor hanya ditampilkan secara visual melalui layar OLED.
+<<<<<<< HEAD
 * **Update Interval:** Data diperbarui ke layar setiap 5000ms (5 detik).
+=======
+* **Update Interval:** Data diperbarui ke layar setiap 5000ms (5 detik).
+>>>>>>> cfb8dca0324f0f46a813be592a279cba1968cbc8
