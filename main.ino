@@ -1,6 +1,6 @@
 /**************************************************************
-   LOLIN S2 Power Monitor - Ultra Efficiency (80MHz)
-   WiFiManager + Full MQTT (V, I, P, E, PF, Freq)
+   PROJECT: ESP32-Energy-Meter (Professional Version)
+   FEATURES: 80MHz CPU, WiFiManager, Full MQTT, Screen Timeout
 **************************************************************/
 
 #include <WiFi.h>
@@ -16,10 +16,12 @@
 // ================= KONFIGURASI MQTT =================
 #define MQTT_SERVER   "test.mosquitto.org"
 #define MQTT_PORT     1883
+const char* deviceName = "ESP32-Energy-Meter";
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 
+// ================= HARDWARE SETUP =================
 HardwareSerial pzemSerial(1);
 #define PZEM_RX 7
 #define PZEM_TX 5
@@ -29,8 +31,9 @@ PZEM004Tv30 pzem(pzemSerial, PZEM_RX, PZEM_TX);
 #define SCREEN_HEIGHT 64
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
-// ================= TOMBOL & TIMING =================
 #define BTN_PIN 18
+
+// ================= VARIABEL GLOBAL =================
 unsigned long buttonPressedTime = 0;
 const int LONG_PRESS_TIME = 5000; 
 bool isPressing = false;
@@ -39,6 +42,10 @@ unsigned long lastSensorRead = 0;
 const unsigned long sensorInterval = 5000;
 unsigned long lastMQTTRetry = 0;
 unsigned long startTimeMillis = 0;
+
+unsigned long lastInteraction = 0;
+const unsigned long screenTimeout = 300000; // 5 Menit
+bool screenOn = true;
 
 int displayPage = 0;
 const int totalPages = 8;
@@ -67,17 +74,26 @@ void showMessage(const char* msg) {
 
 void setupWiFiManager() {
   WiFiManager wm;
-  showMessage("Portal Active:\nESP32_Power_Monitor");
-  if (!wm.autoConnect("ESP32_Power_Monitor")) {
+  
+  // Set Hostname perangkat di jaringan
+  WiFi.setHostname(deviceName);
+  
+  showMessage("Portal Active:\nESP32-Energy-Meter");
+  
+  // Mulai portal AP dengan nama ESP32-Energy-Meter
+  if (!wm.autoConnect(deviceName)) {
+    delay(3000);
     ESP.restart();
   }
-  WiFi.setSleep(true); 
+  
+  WiFi.setSleep(true); // Power saving aktif setelah konek
+  lastInteraction = millis();
 }
 
 void connectMQTT() {
   if (!client.connected() && (millis() - lastMQTTRetry > 5000)) {
     lastMQTTRetry = millis();
-    if (client.connect("LOLIN_S2_PZEM_Node")) {
+    if (client.connect(deviceName)) {
       Serial.println("[MQTT] Connected!");
     }
   }
@@ -125,6 +141,7 @@ void drawBig(const char* label, float value, const char* unit, bool noDecimal=fa
 }
 
 void drawCurrentPage() {
+  if (!screenOn) return;
   switch (displayPage) {
     case 0: drawDashboard(); break;
     case 1: drawBig("Voltage", voltage, "V", true); break;
@@ -139,21 +156,21 @@ void drawCurrentPage() {
 
 // ================= SETUP =================
 void setup() {
-  setCpuFrequencyMhz(80); 
+  setCpuFrequencyMhz(80); // Hemat energi & Dingin
   Serial.begin(115200);
   pinMode(BTN_PIN, INPUT_PULLUP);
   
   Wire.begin(9, 11);
-  Wire.setClock(100000);
+  Wire.setClock(100000); // Stabil di 80MHz
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) for(;;);
 
-  showMessage("Booting...\nWiFi Manager Ready");
   setupWiFiManager();
   
   client.setServer(MQTT_SERVER, MQTT_PORT);
   float e = pzem.energy();
   energyStart = (isnan(e)) ? 0 : e;
   startTimeMillis = millis();
+  lastInteraction = millis();
 }
 
 // ================= LOOP =================
@@ -180,11 +197,23 @@ void loop() {
     if (isPressing) {
       long duration = millis() - buttonPressedTime;
       if (duration > 50 && duration < 2000) {
-        displayPage = (displayPage + 1) % totalPages;
+        if (!screenOn) {
+          screenOn = true;
+        } else {
+          displayPage = (displayPage + 1) % totalPages;
+        }
+        lastInteraction = millis(); 
         drawCurrentPage();
       }
       isPressing = false;
     }
+  }
+
+  // --- SCREEN TIMEOUT ---
+  if (screenOn && (millis() - lastInteraction > screenTimeout)) {
+    screenOn = false;
+    display.clearDisplay();
+    display.display();
   }
 
   // --- SENSOR & PUBLISH ---
@@ -207,14 +236,12 @@ void loop() {
       dtostrf(current, 5, 2, payload);    client.publish("caklutfi/power/pzem_main/current", payload, true);
       dtostrf(power, 5, 1, payload);      client.publish("caklutfi/power/pzem_main/power", payload, true);
       dtostrf(energyKWh, 6, 3, payload);  client.publish("caklutfi/power/pzem_main/energy", payload, true);
-      // Tambahan PF dan Frequency
       dtostrf(pf, 4, 2, payload);         client.publish("caklutfi/power/pzem_main/pf", payload, true);
       dtostrf(frequency, 4, 1, payload);  client.publish("caklutfi/power/pzem_main/frequency", payload, true);
-      unsigned long uptimeSec = millis() / 1000;
-      sprintf(payload, "%lu", uptimeSec);
+      sprintf(payload, "%lu", millis() / 1000);
       client.publish("caklutfi/power/pzem_main/uptime", payload, true);
     }
-    drawCurrentPage();
+    if (screenOn) drawCurrentPage();
   }
   delay(10); 
 }
